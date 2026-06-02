@@ -7,7 +7,12 @@ description: Analyzes a mature LinkedIn outreach campaign (AI commenting on post
 
 This skill is for *scaling up* a working campaign, not fixing a broken one and not setting up a new one. The product comments on LinkedIn posts via AI; "growth" here means more visibility on more relevant posts, not just more comments.
 
-> **Output rule (everything the user sees must be human-friendly):** every line you render — the bottleneck diagnosis, the recommendations themselves (including the **Template** sections in `references/recommendation-patterns.md`), cost estimates, the proposed-diff before applying — uses plain prose only. **Never** show: (a) UUIDs / GUIDs (campaign ids, target ids, account ids, status ids — translate by name or omit); (b) raw booleans `true` / `false` — say "running" / "paused", "enabled" / "disabled", "yes" / "no"; (c) raw API field names or snake_case keys (`post_limit_per_day`, `skip_reason_code`, `ai_assistant_method_id`, `prices.premium_comment`, `content_filter`, etc.) — translate every one (e.g. "the daily comment limit", "skipped as off-topic", "Pro", "the per-Pro-comment price"); (d) MCP tool names (`mcp__claude_ai_Liseller__update_campaign`, `mcp__claude_ai_Liseller__modify_campaign_targets`, or any other `mcp__…` slug, or even the bare `update_campaign` / `update_campaign_assistant` strings — the `Tool call:` lines in `references/recommendation-patterns.md` are agent-only) — describe the action in English ("I'll raise the limit", not "call `update_campaign`"); (e) lookup codes (`premium`, `ContentFilter`) — say "Pro", "off-topic skips". This rule applies to **every line you render for the user** — translate references before showing. Raw field names and tool names exist only for tool calls; they must never appear in what the user reads.
+> **Output rule (everything the user reads must be user-friendly):** in every line and summary, use
+> plain prose only — **never** show UUIDs/GUIDs, raw booleans (say "running"/"paused", "yes"/"no"),
+> snake_case field names, MCP tool names, or lookup codes. Translate each to plain English ("the
+> daily comment limit", "skipped as off-topic", "Pro", "I'll raise the limit"). This covers anything
+> pulled from `references/` too (the **Template** / `Tool call:` lines in `recommendation-patterns.md`
+> are agent-only) — translate before showing. Full do/don't list: `references/output-rules.md`.
 
 ## When to use
 
@@ -26,20 +31,24 @@ This skill is for *scaling up* a working campaign, not fixing a broken one and n
 
 Default analysis window: **last 14 days inclusive** (today minus 13, through today). All date-range tools take `from_date` and `to_date` as `YYYY-MM-DD` strings.
 
-### Step 1 — Confirm preconditions and pull data (parallel)
+### Step 1 — Confirm preconditions and pull data (tiered)
 
-Fan out these calls in parallel for the target `campaign_id`:
+> **Budget note (so a full run fits even on a constrained plan):** classify the bottleneck from the
+> minimal Tier-1 set first, then pull deeper Tier-2 data **only for the bottleneck you actually
+> found** — don't fan out all eight calls up front.
 
-- `list_campaigns(id=<campaign_id>, areDetailsRequired=true)` — verify `is_enabled=true`, status not stuck on `Failed`/`WaitingForProfile`, today's comments are >50% of `post_limit_per_day`. Use `areDetailsRequired=true` to also receive the populated `schedule[]` array (otherwise it's empty even for scheduled campaigns).
+**Tier 1 — preconditions + bottleneck classification (the Step-2 decision tree needs only these):**
+- `list_campaigns(id=<campaign_id>, areDetailsRequired=true)` — verify `is_enabled=true`, status not stuck on `Failed`/`WaitingForProfile`, today's comments >50% of `post_limit_per_day`. `areDetailsRequired=true` also populates `schedule[]` (otherwise empty even for scheduled campaigns).
 - `get_campaign_history(<campaign_id>, from_date, to_date)` — daily series for trend analysis.
 - `get_skip_breakdown(<campaign_id>, from_date, to_date)` — primary diagnostic signal.
-- `get_per_target_performance(<campaign_id>, from_date, to_date)` — names winners/losers per target.
-- `get_engagement_feedback(<campaign_id>, from_date, to_date)` — likes/replies on AI comments. Pull top-3 by engagement to use as quality reference.
-- `get_campaign_assistant_config(<campaign_id>)` — current filter config to know what you'd be patching.
-- `get_campaign_targets(<campaign_id>, page_number=0, page_size=50)` — paginate if `total_count > 50`. Cross-reference with `get_per_target_performance` to identify dead targets by `target_id`.
-- `get_user_stats()` — balance + plan + per-action prices. Required for cost-impact estimates and to know whether paid-tier recommendations (Pro AI) are realistic.
+- `get_user_stats()` — balance + plan + per-action prices, for cost-impact estimates and whether paid-tier moves (Pro AI) are realistic.
 
-If preconditions fail (campaign not enabled, mostly idle, stuck status) → stop, recommend running `linkedin-campaign-audit` first. Growth on a broken campaign just wastes more budget.
+If preconditions fail (not enabled, mostly idle, stuck status) → stop, recommend running `linkedin-campaign-audit` first. Growth on a broken campaign just wastes more budget.
+
+**Tier 2 — fetch only for the bottleneck identified in Step 2:**
+- Target-bound / concentration-bound → `get_per_target_performance(<campaign_id>, from_date, to_date)` + `get_campaign_targets(<campaign_id>, page_number=0, page_size=50)` (paginate if `total_count > 50`). Cross-reference to identify dead targets by `target_id`.
+- Filter-bound → `get_campaign_assistant_config(<campaign_id>)` — current filter config you'd be patching.
+- Quality-bound → `get_engagement_feedback(<campaign_id>, from_date, to_date)` — likes/replies; pull top-3 as a quality reference.
 
 ### Step 2 — Identify the growth bottleneck
 
@@ -95,6 +104,7 @@ Most growth analysis is now end-to-end. Two gaps remain:
 
 ## Detailed references
 
+- `references/output-rules.md` — full do/don't list for user-facing output
 - `references/bottleneck-diagnosis.md` — full decision tree for identifying the limiting factor
 - `references/recommendation-patterns.md` — canonical recommendation patterns with worked examples
 - `references/keyword-expansion.md` — how to brainstorm new keywords when expansion is the right move

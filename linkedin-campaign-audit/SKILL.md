@@ -7,7 +7,12 @@ description: Performs a weekly performance audit of the user's LinkedIn outreach
 
 This skill produces a weekly performance audit of LinkedIn AI-commenting campaigns. The product searches LinkedIn posts and generates AI replies on them so the user can promote themselves or their product through visibility in comment sections.
 
-> **Output rule (everything the user sees must be human-friendly):** every line you render — TL;DR, tables, per-campaign findings, top-engagement entries, action items, follow-ups — uses plain prose only. **Never** show: (a) UUIDs / GUIDs (campaign ids, target ids, account ids, status ids — translate by name or omit); (b) raw booleans `true` / `false` — say "running" / "paused", "enabled" / "disabled", "yes" / "no"; (c) raw API field names or snake_case keys (`is_enabled`, `skip_reason_code`, `ai_assistant_method_id`, `post_limit_per_day`, `content_filter`, etc.) — translate every one (e.g. "23 of 30 daily comments used", "73% skipped as off-topic", "Pro", "the daily comment limit"); (d) MCP tool names (`mcp__claude_ai_Liseller__list_campaigns`, `mcp__claude_ai_Liseller__get_engagement_feedback`, or any other `mcp__…` slug, or even the bare `list_campaigns` / `update_campaign` strings) — describe the action in English ("I'll raise the limit", not "call `update_campaign`"); (e) lookup codes (`premium`, `ContentFilter`, `WaitingForProfile`) — say "Pro", "off-topic skips", "waiting on profile data". This rule applies to **every line you render for the user**, including anything pulled from `references/report-template.md` — translate before showing. Raw field names and tool names exist only for tool calls; they must never appear in what the user reads.
+> **Output rule (everything the user reads must be user-friendly):** in every line and summary, use
+> plain prose only — **never** show UUIDs/GUIDs, raw booleans (say "running"/"paused", "yes"/"no"),
+> snake_case field names, MCP tool names, or lookup codes. Translate each to plain English ("23 of 30
+> daily comments used", "73% skipped as off-topic", "Pro", "I'll raise the limit"). This covers
+> anything pulled from `references/` too — translate before showing. Full do/don't list with examples:
+> `references/output-rules.md`.
 
 ## When to use
 
@@ -43,16 +48,25 @@ Note which campaigns are `is_enabled=false` — those are paused and excluded fr
 - `get_user_stats` → current USD balance, monthly USD, and per-action prices (search, content_filter, profile_filter, comment, premium_comment)
 - `list_lookup(kind="SkipReason")` → reference table for interpreting `skip_reason_id` / `skip_reason_code` returned by the breakdown endpoint
 
-### Step 3 — Pull weekly history per enabled campaign (parallel)
+### Step 3 — Pull weekly data (tiered — one campaign per pass)
 
-For every `is_enabled=true` campaign, fan out these calls in parallel (each takes `campaign_id`, `from_date`, `to_date`):
+> **Budget note (so a full run fits even on a constrained plan):** audit **one campaign per pass**.
+> If the user named a campaign, use it. Otherwise pick the **single most-active enabled campaign**
+> (most comments today, from the Step 1 snapshot), audit it, then offer to repeat the pass for the
+> others. **Do not** fan out the deep calls for every enabled campaign at once. The full report can
+> be produced from Tier 0 + Tier 1; Tier 2 only enriches specific findings. A user on a paid plan can
+> ask for all campaigns in one go.
 
-- `get_campaign_history` → daily series of `posts_found / activities_passed / comments_made / likes_made` (sourced from ClickHouse analytics events). Use this to detect trends (collapsing throughput, dropping activities_passed → posts_found ratio) instead of relying on the one-day snapshot from `list_campaigns`. **Skip counts per day are intentionally NOT in this stream** — call `get_skip_breakdown` for the same window to see why posts dropped out.
-- `get_skip_breakdown` → counts per `skip_reason_id` with `percentage`. This tells you **why** activities were skipped (Age / ContentFilter / ProfileFilter / PostOutdated / OutOfLimit, etc.) — the most important diagnostic signal.
-- `get_engagement_feedback` → summary (total comments, likes/replies received, avg likes per comment, engagement rate) plus a per-comment array sorted by engagement. This is the truest success metric for a visibility product. Pull the top-3 comments for the report. **If the account is not connected for statistics, likes/replies come back as zero** — don't report "no engagement"; instead tell the user, in plain language, to connect the account for stats on **https://app.liseller.com** under **Analytics** (https://app.liseller.com/pages/analytics) and **Inbox** (https://app.liseller.com/pages/communications). Check the account's stats-connection status first.
-- `get_per_target_performance` → per-target counters (`posts_found / comments_made / likes_made / skipped_count` + per-target `skip_breakdown`). Use this to spot dead keywords/profiles (0 comments over the full window).
-- `get_campaign_assistant_config` → current `content_filter` / `profile_filter` / `post_filter` config. Needed to interpret skip-reason dominance ("ContentFilter is 70% of skips → here is what the filter is currently set to").
-- `get_campaign_targets` (page 0, size 50, paginate if `total_count > 50`) → the actual keywords/URLs driving the campaign. Cross-reference with `get_per_target_performance` to name dead targets and suggest removals via `modify_campaign_targets.ids_to_remove`.
+For the campaign being audited, pull data in tiers (each takes `campaign_id`, `from_date`, `to_date`):
+
+**Tier 1 — core diagnostics (always; the two-call minimum that drives the TL;DR and most action items):**
+- `get_campaign_history` → daily `posts_found / activities_passed / comments_made / likes_made` series. Detects trends (collapsing throughput, dropping activities_passed → posts_found ratio) the one-day `list_campaigns` snapshot hides. **Skip counts are NOT in this stream** — that's `get_skip_breakdown`.
+- `get_skip_breakdown` → counts per `skip_reason_id` with `percentage` — **why** activities were skipped (Age / ContentFilter / ProfileFilter / PostOutdated / OutOfLimit). The single most important diagnostic.
+
+**Tier 2 — on-demand only when a Tier-1 signal calls for it (don't pull these by default):**
+- `get_campaign_assistant_config` → **only when ContentFilter/ProfileFilter dominates skips** — shows what the filter is currently set to, to explain the dominance.
+- `get_per_target_performance` + `get_campaign_targets` (page 0, size 50; paginate only if `total_count > 50`) → **only when throughput is low or the user asks about dead keywords**. Cross-reference the two to name dead targets (0 comments over the window) and suggest removals via `modify_campaign_targets.ids_to_remove`.
+- `get_engagement_feedback` → summary + per-comment array sorted by engagement (pull top-3 for the report). Fetch once **if the account is stats-connected**. **If not connected, likes/replies come back zero** — don't report "no engagement"; tell the user in plain language to connect the account for stats on **https://app.liseller.com** under **Analytics** (https://app.liseller.com/pages/analytics) and **Inbox** (https://app.liseller.com/pages/communications), and skip this call.
 
 ### Step 4 — Evaluate each enabled campaign against the checklist
 
@@ -61,7 +75,7 @@ See `references/audit-checklist.md` for the full per-campaign scorecard. The fiv
 1. **Throughput health** — is the campaign hitting its `post_limit_per_day` or falling short? Falling short by >40% on multiple days = under-targeted (not enough relevant posts found) or over-filtered. Use `get_campaign_history` for the day-by-day picture, not just the `list_campaigns` snapshot.
 2. **Skip rate breakdown** — from `get_skip_breakdown`: which `skip_reason_code` dominates? Each cause maps to a specific fix (see `references/skip-reasons.md`).
 3. **Budget burn** — at current daily comment count × per-action price, how many days does the balance last? Flag if <14 days runway or if monthly_usd is being burned faster than 1/30 per day.
-4. **AI method fit** — **Pro is the expected method for every campaign.** `Off` campaigns generate likes only, no visibility lift. `Common` lacks the research-backed quality of Pro. Any campaign on `Common` or `Off` → raise a "move to Pro" action item. `Custom` must never be set (UI-only). Cross-reference `engagement_feedback.summary.avg_likes_per_comment` to quantify the gap, but the recommendation for a non-Pro campaign is always: move it to Pro.
+4. **AI method fit** — **Pro is the expected method for every campaign.** `Off` campaigns generate likes only, no visibility lift. `Common` lacks the research-backed quality of Pro. Any campaign on `Common` or `Off` → raise a "move to Pro" action item. `Custom` must never be set (UI-only). If engagement data was pulled (Tier 2), cross-reference `engagement_feedback.summary.avg_likes_per_comment` to quantify the gap — otherwise the recommendation for a non-Pro campaign stands regardless: move it to Pro.
 5. **Schedule sanity** — if `is_using_schedule=true`, are the windows wide enough to hit the day limit? Narrow windows + high `pause_between_posts_in_minutes` = arithmetic impossibility.
 
 ### Step 5 — Cross-campaign issues
@@ -93,6 +107,7 @@ Most of the audit is fully covered now. The only remaining gap is keyword expans
 
 ## Detailed references
 
+- `references/output-rules.md` — full do/don't list for user-facing output
 - `references/audit-checklist.md` — full per-campaign scorecard with thresholds
 - `references/skip-reasons.md` — what each skip reason means and how to fix it
 - `references/report-template.md` — exact report structure with placeholders

@@ -12,7 +12,7 @@ The backend gates `set_campaign_running(enabled=true)` on (1) `is_setup_complete
 
 ## Targets
 - [ ] Campaign type matches the audience definition (ByKeyword for topical, ByProfile for named accounts)
-- [ ] **ByKeyword:** 5–15 keywords (relevance sweet spot), **each 1–3 words** (brand names, acronyms, short phrases — no sentences), anchored to ICP
+- [ ] **ByKeyword:** ~30 keywords (aim 25–30, AI-generated then user-reviewed), **each 1–3 words** (brand names, acronyms, short phrases — no sentences), anchored to ICP
 - [ ] **ByProfile:** 10–50 URLs (relevance sweet spot), all matching `linkedin.com/{in|company|showcase}/<slug>`, mix of tiers
 - [ ] Total targets ≤ 500 (hard ceiling). Every keyword/URL is one search per round — cost scales linearly with target count.
 - [ ] No hashtag-style keywords; keep each keyword to 3 words or fewer

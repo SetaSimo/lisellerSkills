@@ -18,7 +18,7 @@ Practical test before adding a keyword: "If a member of the ICP saw this post in
 
 3. **Avoid over-promoted terms.** Hashtag-style terms ("#AI", "#crypto") attract spam and ghost engagement. Prefer natural-language phrases that show up in actual posts.
 
-4. **Mix specific and aspirational.** Pure specifics ("Snowflake cost") get low volume on their own. Pure aspirationals ("future of work") get noise. A campaign of 5–15 keywords should balance both.
+4. **Mix specific and aspirational.** Pure specifics ("Snowflake cost") get low volume on their own. Pure aspirationals ("future of work") get noise. A campaign of ~30 keywords should balance both.
 
 5. **Negative space matters.** If a topic has a common but irrelevant meaning ("python" → snake), pick a tighter alternative or skip it.
 
@@ -72,11 +72,11 @@ Good keyword set:
 
 ### How many?
 
-**Relevance sweet spot: 5–15 keywords.** Fewer → campaign idles. More → relevance collapses and the content filter eats the budget. This is a quality guideline, not the technical limit.
+**Target ~30 keywords (aim for 25–30).** Generate the full set yourself from the ICP and the user's profile/company context, then present them for the user to trim or extend. Fewer than ~20 risks the campaign idling; keep every keyword relevant (1–3 words, audience-anchored) so the content filter doesn't eat the budget on noise.
 
 **Hard ceiling: ≤ 500 keywords per campaign.** Beyond that, split into separate campaigns.
 
-**Cost scales linearly with target count.** Every keyword is run as its own search once per round, and the per-search price is billed for each. Doubling the keyword list doubles the search spend regardless of how many posts come back. If the user wants 30+ keywords, push back on relevance grounds first.
+**Cost scales linearly with target count.** Every keyword is run as its own search once per round, and the per-search price is billed for each. Doubling the keyword list doubles the search spend regardless of how many posts come back — so keep the ~30 tight and relevant rather than padding toward the ceiling.
 
 ## ByProfile: building a good profile list
 

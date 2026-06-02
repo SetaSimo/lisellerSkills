@@ -9,7 +9,12 @@ This skill helps create a new LinkedIn AI-commenting campaign correctly the firs
 
 The backend gates `set_campaign_running(enabled=true)` on `is_setup_completed=true`, non-empty `ai_brief`, at least one target, and configured schedule windows (if `is_using_schedule=true`). **The campaign cannot run until you have explicitly marked it complete.** Step 13 is where that flag flips. `is_enabled` is not exposed via `update_campaign` — start/stop only via `set_campaign_running`.
 
-> **Output rule (everything the user sees must be human-friendly):** every line you render — clarifying questions, the dry-run review in Step 12, the cost & runway numbers, the closing follow-up — uses plain prose only. **Never** show: (a) UUIDs / GUIDs (campaign ids, target ids, account ids, status ids — translate by name or omit); (b) raw booleans `true` / `false` — say "running" / "paused", "enabled" / "disabled", "yes" / "no", "connected" / "not connected"; (c) raw API field names or snake_case keys (`is_active`, `is_setup_completed`, `ai_assistant_method_id`, `skip_reason_code`, `post_source_filtering_type`, `post_limit_per_day`, `prices.premium_comment`, etc.) — translate every one (e.g. "the LinkedIn account is connected", "setup isn't finished yet", "the daily comment limit", "per-Pro-comment price"); (d) MCP tool names (`mcp__claude_ai_Liseller__create_campaign`, `mcp__claude_ai_Liseller__update_campaign`, or any other `mcp__…` slug, or even the bare `create_campaign` / `update_campaign` / `modify_campaign_targets` strings) — refer to actions by what they do in English ("I'll create the campaign and add the keywords", not "I'll call `create_campaign`"); (e) lookup codes (`premium`, `exclude_company`, `li-search-posts`, `WaitingForProfile`) — say "Pro", "companies only", "keyword search", "waiting on profile data". This rule covers **every message and every summary you render for the user**, including anything pulled from `references/` (default templates, examples, checklists) — translate before showing. Raw field names and tool names exist only for tool calls; they must never appear in what the user reads.
+> **Output rule (everything the user reads must be user-friendly):** in every message and summary, use
+> plain prose only — **never** show UUIDs/GUIDs, raw booleans (say "running"/"paused", "yes"/"no"),
+> snake_case field names, MCP tool names, lookup codes, or internal entity names. Translate each to plain
+> English ("the daily comment limit", "I'll create the campaign and add the keywords", "Pro"). This covers
+> anything pulled from `references/` too — translate before showing. Full do/don't list with examples:
+> `references/output-rules.md`.
 
 ## When to use
 
@@ -19,6 +24,14 @@ The backend gates `set_campaign_running(enabled=true)` on `is_setup_completed=tr
 - User has an existing campaign but the goal has shifted enough that a fresh setup is cleaner than editing
 
 ## Setup workflow (run in order — don't skip)
+
+> **You can set up several campaigns in this same chat.** Let the user know up front: once one campaign
+> is launched, they can start another right away without leaving the conversation — just describe the
+> next audience or goal and you'll run the setup again. When building multiple campaigns, give **each
+> one its own focused ~30 keywords** for its theme — don't split a single 30-keyword set across them.
+> Heads-up: the user's plan caps how many campaigns they can have, so creating one may be rejected with
+> a "campaign limit reached" error — if that happens, explain it in plain language and offer to
+> pause/delete an unused campaign or upgrade the plan rather than silently failing.
 
 The order matches the web UI. Each decision constrains the next.
 
@@ -83,14 +96,14 @@ This is where most campaigns fail. See `references/target-design.md` for the ful
 
 **For ByKeyword:**
 - Think like the **ICP** (Ideal Customer Profile). What posts would they *read*, *search for*, or *write themselves*? A keyword is right when posts matching it would naturally appear in your ICP's feed.
-- Start with 5–15 keywords, not 50. More keywords ≠ more reach; they just dilute relevance.
+- **Generate ~30 keywords (aim for 25–30)** yourself from the ICP, the user's profile/company context, and their stated goal — then present the full set so the user can trim or add to it. Don't make the user brainstorm from scratch.
 - **1–3 words per keyword. No sentences.** Brand names ("Kajabi"), tight acronyms ("GTM", "revops"), and 2–3-word phrases ("business coaching", "client acquisition coaching") work best. 4+ word phrases fragment LinkedIn search. See `references/target-design.md` for full examples.
 
 **For ByProfile:**
 - Verify each URL matches `linkedin.com/{in|company|showcase}/<slug>`
 - 10–50 profiles is the relevance sweet spot; <10 risks the campaign idling, >50 dilutes attention.
 
-**Target count:** hard ceiling **≤ 500** keywords/URLs per campaign — split into separate campaigns beyond that. Internally, each keyword/URL is one search per round, so spend scales linearly with the list — keep this in mind when sizing the list, but **do not present any cost to the user here**; the cost/runway figure is shown once at the final review (Step 12). Pass targets as a flat list of strings in `modify_campaign_targets.items_to_add` (e.g. `["postgres performance", "b2b saas pricing"]`).
+**Target count:** hard ceiling **≤ 500** keywords/URLs per campaign — split into separate campaigns beyond that. Each keyword/URL is one search per round, so spend scales linearly with the list (keep in mind when sizing — but cost is shown only at Step 12). Pass targets as a flat list of strings in `modify_campaign_targets.items_to_add` (e.g. `["postgres performance", "b2b saas pricing"]`).
 
 ### Step 5 — Create the campaign (DISABLED) and add targets
 
@@ -107,64 +120,32 @@ This is where most campaigns fail. See `references/target-design.md` for the ful
 
 Capture the returned campaign id, then `modify_campaign_targets(request={ campaign_id, items_to_add: [...] })` with the keywords or profile URLs from Step 4.
 
-### Step 6 — Filters (with sensible defaults + price awareness)
+### Step 6 — Filters
 
-Apply assistant-level filters via `update_campaign_assistant(campaignId, patch={ content_filter_patch, profile_filter_patch, post_filter_patch })`. Apply campaign-level **Post Author Type** via `update_campaign(campaignId, patch={ post_source_filtering_type })` (it's a campaign field, not an assistant field).
+Apply assistant-level filters via `update_campaign_assistant(campaignId, patch={ content_filter_patch, profile_filter_patch, post_filter_patch })`. Apply campaign-level **Post Author Type** via `update_campaign(campaignId, patch={ post_source_filtering_type })`.
 
-**Post Author Type.** Ask the user: «Should the campaign process posts from companies, individuals, or both?»
-- **Any** → `post_source_filtering_type: "none"` (default)
-- **Only Companies** → `post_source_filtering_type: "exclude_person"`
-- **Only Users** → `post_source_filtering_type: "exclude_company"`
+**Post Author Type.** Ask: «companies, individuals, or both?» → `none` (Any, default) / `exclude_person` (Only Companies) / `exclude_company` (Only Users). Send the `code` **string** (not the `id`) from `list_lookup(kind: "PostSourceFilteringType")`.
 
-The server identifies each profile's type via `LinkedinNoApiUtils.GetProfileKind(profile.LinkedinUrl)` (`/in/...` → User, `/company/...` → Company, `/showcase/...` → ShowcaseCompany) and skips posts that don't match. Use `list_lookup(kind: "PostSourceFilteringType")` to read the dictionary, then send the `code` string (e.g. `"exclude_company"`) — not the `id` — to `update_campaign.post_source_filtering_type`.
+**Where a rule belongs** (the key distinction — full detail in `references/persona-design.md`):
+- **Content filter** (`content_filter_patch.instruction`) — one paid call per post, matched against the post text **and** the author Headline. Put post-substance rules **and** author/role rules ("skip students", "only CTOs") here. No profile parse, no extra cost.
+- **Profile filter** (`profile_filter_patch`) — **geo only**; enabling it forces a per-post profile parse (extra latency + cost). Use only for LinkedIn-profile geo scoping.
+- `filter_open_to_work` / `filter_hiring` — accepted but **not enforced today**; don't rely on them.
 
-**What the assistant filters actually look at** — keep this in mind when deciding where a rule belongs:
-- `content_filter_patch.instruction` is matched, in **one** content-filter request, against BOTH the **post text** (reshared + original) AND the author's **LinkedIn Headline** (captured at search time — no profile parse). So post-substance rules and author/role rules both live in this one instruction.
-- `profile_filter` evaluates the author's **geo only** (`geo_whitelist`/`geo_blacklist`). It does not see the post text or the headline. Enabling it forces a profile parse and the per-post `prices.profile_filter` cost (see below).
-- `filter_open_to_work` / `filter_hiring` are accepted by the API but are **not enforced by the live pipeline today** — setting them changes nothing. Don't promise the user they will drop anyone.
-- Author **job title / seniority / role / "is a student"** rules → just put them in `content_filter_patch.instruction`. They are matched against the author Headline by the content filter automatically — **no profile filter, no profile parse, no `prices.profile_filter` cost**.
-- Post substance / language / format → also `content_filter_patch.instruction`.
+**Content filter — always apply:**
+1. **Mandatory opening line:** `I am looking for posts about <broad topic that unites the user's keywords>` (or `…from <broad ICP description>`). Derive the topic from the keyword list.
+2. `is_enabled=true` plus the two default objective rules at the end: `Reject posts that contain only a link with no original text.` and `Reject posts that contain only emoji with no substantive text.`
+3. **Objective skip rules only** (content shape, literal strings, author role in headline) — **never** subjective ones, and **no "Prioritise" lines** (it's a binary keep/skip gate — to narrow harder, add more `Skip` rules).
+4. Language → `language_whitelist=["English"]` (already preset; resend only if the user named other languages). Geo → `profile_filter_patch.geo_whitelist`/`geo_blacklist` + `is_enabled=true`. Max post age → `post_filter_patch.skip_posts_older_than_days=90` (range 0–90).
 
-Example: "skip students / skip recruiters" by author → add to `content_filter_patch.instruction` (e.g. "Skip if the author is a student, intern, recruiter, or otherwise not the target role"). The content filter applies it to the author Headline in the same call — nothing else to enable.
-
-**See `references/content-filter-examples.md`** for production-grade instruction patterns from real users (simple ICP-targeting, structured prioritize+skip lists, brand-blacklists, hiring-filters).
-
-**Behavioural notes (do NOT quote any price to the user here — cost is shown only at Step 12):**
-- The content filter runs once per post and covers both the post text and the author Headline in one call — author/role targeting adds no extra latency.
-- The geo profile filter (`profile_filter_patch.is_enabled=true` / a geo list) **forces a profile parse for every candidate post** (the post is held until the author profile is fetched, re-parsed if older than ~10 days, abandoned after ~3h) and adds latency. Only enable it if the user needs LinkedIn-profile geo scoping. (Its cost is folded into the final calculation.)
-- The post-age threshold is a coarse pre-AI drop applied before any AI call.
-
-**Mandatory opening line:** every `content_filter_patch.instruction` starts with `I am looking for posts about <broad topic that unites the user's keywords>` (or `I am looking for posts from <broad ICP description>`). Derive the broad topic from the user's keyword list — e.g. keywords about coaching → "coaching, online courses, and personal development"; agency-marketing keywords → "agency growth, client acquisition, and digital marketing"; RevOps/GTM keywords → "revenue operations and go-to-market strategy". This anchors the AI back to the topic when many skip rules follow.
-
-**Defaults to apply** (combine into a single `content_filter_patch.instruction`):
-- Languages → `content_filter_patch.language_whitelist=["English"]` (already preset at create time — only send this patch if the user named other languages in Step 1)
-- `content_filter_patch.is_enabled=true` with an instruction that always includes the opening line plus these two objective default rules at the end, plus anything the user asked for:
-  - `Reject posts that contain only a link with no original text.`
-  - `Reject posts that contain only emoji with no substantive text.`
-- **Only objective skip rules.** Every additional rule must reference something measurable: content shape (hashtags-only, link-only, length cutoff), a literal string ("HIRING", "Proofpoint"), or an author role/title that appears in the headline. **Never** subjective rules like "skip posts the AI has nothing useful to add to" — the filter cannot evaluate them reliably.
-- **No "Prioritise" lines.** The filter is a binary keep-or-skip gate, not a ranker. To narrow harder, add more `Skip` rules.
-- Geo allow-list → `profile_filter_patch.geo_whitelist` + `profile_filter_patch.is_enabled=true` (paid + forces profile parse — see cost note above; set only if the user needs LinkedIn-profile geo scoping)
-- Geo block-list → `profile_filter_patch.geo_blacklist` (same cost/latency caveat)
-- Author/Headline/role targeting → just put the rule in `content_filter_patch.instruction` (matched against the author Headline by the content filter; no profile filter, no parse, no extra cost)
-- `filter_open_to_work` / `filter_hiring`: **not enforced by the live pipeline today** — do not set them expecting an effect; do not tell the user they filter anyone
-- Max post age → `post_filter_patch.skip_posts_older_than_days=90` (UI default; allowed range 0–90)
-
-These two default content-filter rules plus the mandatory opening line are not optional — apply them on every new campaign. The user can refine the instruction further with topic-specific objective skip rules from Step 1.
+The opening line + two default rules are not optional. See `references/content-filter-examples.md` for real-world instruction patterns.
 
 > **MCP caps tightened to UI bounds:** `post_limit_per_day` ≤ 200, `post_limit_per_profile_per_day` ≤ 10, `…_per_week` ≤ 50, `…_per_month` ≤ 150. Validator rejects anything above. Don't talk users into "just bump to 1000" — that path is closed.
 
 ### Step 7 — Choose AI method
 
-`update_campaign(campaign_id, patch={ ai_assistant_method_id })`. Get the id from `list_lookup(kind: "AiMethod")`.
+`update_campaign(campaign_id, patch={ ai_assistant_method_id })` with the id from `list_lookup(kind: "AiMethod")`.
 
-| Method | Code | What it does | When |
-|---|---|---|---|
-| Pro | `premium` | **Performs background research** — pulls fresh news / analytics related to the post topic — and writes a fact-checked, evidence-backed comment with citations. Also unlocks `opener_lines`. **Average engagement (likes + replies) is multiple times higher** because the comment carries substance, not just a reaction. This is "pro-commenting". | **Default for every campaign — set this now.** |
-| Common | `common` | Generates a comment from the post + persona context only. No external research. | Only if the user explicitly asks for it. |
-| Off | `off` | No AI comments — likes only. | Likes-only campaigns. Confirm intentional. |
-| Custom | `custom` | User-provided webhook. | **Never select.** UI-only; cannot be configured via MCP and is billed at the Pro price. If the user asks, explain it is UI-only and offer Pro or Common. |
-
-**Default to Pro and set it now** via `update_campaign(campaign_id, patch={ ai_assistant_method_id })` with the id from `list_lookup(kind: "AiMethod")` (the entry whose code is `premium`). Pro produces research-backed, higher-engagement comments and is the recommended method for every campaign. Use `Common` only if the user explicitly requests it. You may state the value qualitatively («each Pro comment carries researched facts and sources, so engagement is materially higher») but **do not quote any price here** — the per-comment price and total cost are presented only at the final review (Step 12). Never select `Custom`.
+**Default to Pro (code `premium`) and set it now** for every campaign — it performs background research and writes evidence-backed comments (multiple-times-higher engagement) and unlocks `opener_lines`. Use `Common` only on explicit request; `Off` only for intentional likes-only; **never** `Custom` (UI-only). You may state Pro's value qualitatively, but quote no price here. Full method table in `references/limits-and-methods.md`.
 
 ### Step 8 — Persona + comment type + (Pro) opener lines
 
@@ -183,42 +164,9 @@ Fields:
 
 **Hard rule:** never send a field whose value still contains unsubstituted `{{...}}` placeholders. Always read the final text back to the user and ask for sign-off before the `update_campaign_assistant` call.
 
-**Comment type (`commenting_patch.commenting_mode`)** — this is **not** a silent default. **Ask the user explicitly** which mode they want, present the three options with pros and cons, and only then submit. The MCP layer translates the chosen string into the underlying flags.
+**Comment type (`commenting_patch.commenting_mode`)** — **not** a silent default. Ask the user explicitly which of `"promo"` / `"neutral"` / `"mixed"` they want, present the pros/cons, then submit `commenting_mode: "<choice>"`. If they say "you choose", recommend `"mixed"`. Full three-mode ask-script with pros/cons in `references/persona-design.md`.
 
-Ask it like this:
-
-> «There are three comment modes — which one fits this campaign?
->
-> 1. **Promo only** (`"promo"`) — every comment pitches the product.
->    - **Pros:** maximum top-of-funnel exposure to the product; highest click-through to your page; clearest call-to-action.
->    - **Cons:** lowest community trust; LinkedIn audiences quickly recognise the pattern; engagement (likes/replies) drops; risk of being flagged as spam over time.
->    - Use when the audience already knows you and the goal is repeat product impressions.
->
-> 2. **Neutral only** (`"neutral"`) — every comment is value-only (insight, question, anecdote, data point) — no product pitch at all.
->    - **Pros:** highest community trust and engagement; lowest spam-flag risk; you become "the smart voice in this niche" before the product comes up.
->    - **Cons:** zero direct product exposure in the comment itself; conversion happens only when the reader clicks your profile.
->    - Use when you're new in the niche and need to build credibility first.
->
-> 3. **Mixed** (`"mixed"`) — the AI picks per-post whether to pitch or stay neutral.
->    - **Pros:** balanced — most posts stay neutral and build trust, occasional posts include a pitch; **best long-run engagement-to-conversion ratio** for most campaigns.
->    - **Cons:** less predictable than the pure modes; mix ratio is the AI's call.
->    - **Recommended default for new campaigns.**
->
-> Which one should I set?»
-
-After the user picks, send `commenting_mode: "<choice>"` in the patch. Don't pre-fill — if the user says "you choose", recommend `"mixed"` and tell them why.
-
-**`opener_lines` (Pro only)** — send 5–15 distinct openers, one per line, that the Pro AI samples from. Reference set the user has approved:
-
-```
-I was just reading about this, interestingly...
-I recently came across research showing...
-I've been exploring this lately, and...
-Saw some data on this last week...
-This reminds me of what...
-```
-
-Use these as a stylistic baseline and ask the user to add any in their own voice. **Never send `opener_lines` when the AI method is not Pro — the server rejects the patch.**
+**`opener_lines` (Pro only)** — send 5–15 distinct openers (one per line) for the Pro AI to sample; use the reference set in `references/persona-design.md` as a baseline and ask the user to add their own. **Never send `opener_lines` when the method isn't Pro — the server rejects the patch.**
 
 ### Step 9 — Search cadence (default: every hour)
 
@@ -228,25 +176,12 @@ Briefly mention the alternative (keep it short — one or two sentences, don't o
 
 ### Step 10 — Limits and ramp-up
 
-Two calls.
+Both are already applied at create-time with UI defaults — override only if the user has a reason:
 
-1. `update_campaign(campaign_id, patch={ post_limit_per_day, post_limit_per_profile_per_day, post_limit_per_profile_per_week, post_limit_per_profile_per_month })`. UI defaults (already applied at create-time, override only if the user has a reason):
+1. `update_campaign(campaign_id, patch={ post_limit_per_day, post_limit_per_profile_per_day/week/month })` — defaults 10 / 1 / 7 / 30 (caps 200 / 10 / 50 / 150).
+2. `update_campaign_assistant(campaign_id, patch={ ramp_up_patch })` — ramp-up enabled by default (`frequency_in_days=4`, `increment=2`, `max_limit=50`).
 
-| Field | Default | Cap (UI) |
-|---|---|---|
-| `post_limit_per_day` | 10 | 200 |
-| `post_limit_per_profile_per_day` | 1 | 10 |
-| `post_limit_per_profile_per_week` | 7 | 50 |
-| `post_limit_per_profile_per_month` | 30 | 150 |
-
-2. `update_campaign_assistant(campaign_id, patch={ ramp_up_patch })`. Ramp-up is **enabled** by default with sane values; override only if the user wants to disable or accelerate it:
-
-| Field | Default | Range |
-|---|---|---|
-| `is_enabled` | true | — |
-| `frequency_in_days` | 4 | 1–30 |
-| `increment` | 2 | 1–50 |
-| `max_limit` | 50 | 1–200 |
+Full tables + ranges in `references/limits-and-methods.md`.
 
 ### Step 10.5 — Name the campaign
 
@@ -289,14 +224,8 @@ Then summarize for the user (plain language, no raw field names):
 
 **Cost & runway — this is the ONLY place pricing is shown to the user. Compute and present it once, here:**
 
-1. `get_user_stats` → `balance.usd`, `balance.monthly_usd`, `balance.monthly_usd_renews_at`, `prices`.
-2. `list_campaigns(areDetailsRequired=true)` → for **every currently-running campaign** plus this new one, estimate its daily spend: `post_limit_per_day × per-comment price for its method` + filter/search evaluations (`prices.search` per target per round, `prices.content_filter` / `prices.profile_filter` per evaluated post). Sum into one **combined daily spend** across all of them.
-3. Runway: the monthly allowance (`monthly_usd`) is the recurring budget — it refills to the full plan amount on `monthly_usd_renews_at`; the top-up balance (`usd`) is the buffer used once the monthly allowance is gone. Tell the user, in plain prose and as a range:
-   - combined daily spend ≈ $X across N running campaigns (incl. this one),
-   - the monthly allowance lasts until roughly `<monthly_usd_renews_at>` at that rate, after which it renews,
-   - once the monthly allowance is exhausted the top-up balance keeps everything running ≈ M more days,
-   - so overall the user can keep all campaigns running ≈ **K days** at the current balance.
-   No raw numbers like `monthly_usd=...`; say "your monthly plan budget" / "top-up balance".
+1. `get_user_stats` → balance + `prices`; `list_campaigns(areDetailsRequired=true)` → for **every running campaign plus this new one**, estimate daily spend and sum into one **combined daily spend**. Cost formula in `references/limits-and-methods.md`.
+2. Runway: the monthly plan budget refills on its renewal date; the top-up balance covers spend once the monthly budget is gone. Tell the user, in plain prose and as a range: combined daily spend across N running campaigns, that the monthly budget lasts until ≈ its renewal date, and ≈ how many total days the balance keeps everything running. Say "your monthly plan budget" / "top-up balance" — never raw numbers or field names.
 
 **Wait for explicit user approval before proceeding.**
 

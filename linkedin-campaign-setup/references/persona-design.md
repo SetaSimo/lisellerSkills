@@ -121,6 +121,27 @@ Submitted via `update_campaign_assistant.commenting_patch.commenting_mode` as a 
 
 When you switch modes on an existing campaign, just send the new `commenting_mode` value — the MCP layer rewrites the three underlying flags for you.
 
+**Don't pre-fill the mode** — ask the user explicitly and present the three options with pros/cons. If they say "you choose", recommend `"mixed"` and explain why. Full ask-script:
+
+> «There are three comment modes — which one fits this campaign?
+>
+> 1. **Promo only** (`"promo"`) — every comment pitches the product.
+>    - **Pros:** maximum top-of-funnel exposure to the product; highest click-through to your page; clearest call-to-action.
+>    - **Cons:** lowest community trust; LinkedIn audiences quickly recognise the pattern; engagement (likes/replies) drops; risk of being flagged as spam over time.
+>    - Use when the audience already knows you and the goal is repeat product impressions.
+>
+> 2. **Neutral only** (`"neutral"`) — every comment is value-only (insight, question, anecdote, data point) — no product pitch at all.
+>    - **Pros:** highest community trust and engagement; lowest spam-flag risk; you become "the smart voice in this niche" before the product comes up.
+>    - **Cons:** zero direct product exposure in the comment itself; conversion happens only when the reader clicks your profile.
+>    - Use when you're new in the niche and need to build credibility first.
+>
+> 3. **Mixed** (`"mixed"`) — the AI picks per-post whether to pitch or stay neutral.
+>    - **Pros:** balanced — most posts stay neutral and build trust, occasional posts include a pitch; **best long-run engagement-to-conversion ratio** for most campaigns.
+>    - **Cons:** less predictable than the pure modes; mix ratio is the AI's call.
+>    - **Recommended default for new campaigns.**
+>
+> Which one should I set?»
+
 ## Likes
 
 There's no separate "assistant may like" toggle anymore. Whether the campaign publishes likes is controlled solely by the campaign-level `auto_like_enabled` (Step 11).
