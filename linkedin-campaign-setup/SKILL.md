@@ -102,6 +102,7 @@ This is where most campaigns fail. See `references/target-design.md` for the ful
 **For ByProfile:**
 - Verify each URL matches `linkedin.com/{in|company|showcase}/<slug>`
 - 10–50 profiles is the relevance sweet spot; <10 risks the campaign idling, >50 dilutes attention.
+- If the user wants you to **find** profiles instead of pasting their own, use `search_profiles` to discover candidates by criteria (job title, seniority, industry, location, …), then add the chosen URLs — **only when they ask to search**. See `references/target-design.md`.
 
 **Target count:** hard ceiling **≤ 500** keywords/URLs per campaign — split into separate campaigns beyond that. Each keyword/URL is one search per round, so spend scales linearly with the list (keep in mind when sizing — but cost is shown only at Step 12). Pass targets as a flat list of strings in `modify_campaign_targets.items_to_add` (e.g. `["postgres performance", "b2b saas pricing"]`).
 
