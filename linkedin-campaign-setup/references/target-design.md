@@ -100,6 +100,22 @@ For each target account, the user should provide:
 
 That's 60–80 URLs for 20 accounts — manageable, focused, and surfaces multiple post streams per account.
 
+### Discovering profiles with `search_profiles`
+
+If the user wants you to **find** profiles rather than supplying their own list, use `search_profiles`
+to discover candidates by criteria. **Only when the user explicitly asks to search** — never to guess
+a known person's URL, and never for ByKeyword campaigns.
+
+It returns up to **50** matches per call, each with a profile URL ready to add as a target. You can
+filter by job title, seniority, company (name / domain / industry / size), location, languages, bio
+keywords, certifications, schools, and connection / follower counts — the tool's own parameters carry
+the exact accepted values, so build the call from those rather than from a list memorised here.
+
+Workflow: turn the ICP into filters → search → present the matches to the user **in plain language**
+(name, title, company, location — never field names or codes) and let them pick → add the chosen URLs
+as targets. The 50-row cap is per call; narrow the filters or run a few focused searches rather than
+asking for "everyone".
+
 ## Mistakes to push back on
 
 - **"Add my whole CRM as profile targets" (500+ URLs)** → diluted, slow, expensive. Suggest splitting into segments.

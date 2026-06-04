@@ -61,6 +61,8 @@ Audience scoping is done through the **content filter**, not the profile filter:
 
 **Tool call:** `modify_campaign_targets(campaign_id=…, items_to_add=['https://linkedin.com/in/…', …], ids_to_remove=[<dormant target_id>, …])` (items_to_add is a flat list of URL strings). `target_id` values come from `get_per_target_performance`.
 
+**Sourcing the replacements:** if the user asks you to *find* the new active posters (rather than supplying them), use `search_profiles` (shared) with the same role / company tier as filters — it returns up to 50 candidates with ready-to-add URLs. Only when they want a search; never for ByKeyword campaigns. Field cheat-sheet: `references` of the setup skill (`target-design.md`).
+
 ## Pattern: "Move to Pro" (Quality-bound, or any campaign still on Common)
 
 **When:** the campaign is on `Common` (Pro is the baseline method for every campaign), OR engagement on comments is weak.
