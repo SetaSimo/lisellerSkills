@@ -102,19 +102,11 @@ That's 60–80 URLs for 20 accounts — manageable, focused, and surfaces multip
 
 ### Discovering profiles with `search_profiles`
 
-If the user wants you to **find** profiles rather than supplying their own list, use `search_profiles`
-to discover candidates by criteria. **Only when the user explicitly asks to search** — never to guess
-a known person's URL, and never for ByKeyword campaigns.
-
-It returns up to **50** matches per call, each with a profile URL ready to add as a target. You can
-filter by job title, seniority, company (name / domain / industry / size), location, languages, bio
-keywords, certifications, schools, and connection / follower counts — the tool's own parameters carry
-the exact accepted values, so build the call from those rather than from a list memorised here.
-
-Workflow: turn the ICP into filters → search → present the matches to the user **in plain language**
-(name, title, company, location — never field names or codes) and let them pick → add the chosen URLs
-as targets. The 50-row cap is per call; narrow the filters or run a few focused searches rather than
-asking for "everyone".
+If the user wants you to **find** profiles by criteria rather than supplying their own list, you must use
+the `search_profiles` tool — **only when they explicitly ask to search**, never to guess a known person's
+URL, and never for ByKeyword campaigns. The full filter vocabulary (controlled-vocabulary values for
+seniority, company size, and industry), the result shape, and the discover→present→pick→add workflow live
+in `references/profile-search.md` — read it before searching.
 
 ## Mistakes to push back on
 
