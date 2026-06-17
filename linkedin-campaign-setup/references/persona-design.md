@@ -4,6 +4,8 @@ Step 8 of the setup walks the user through the AI's voice. These fields are stor
 
 **Hard rule: don't fabricate.** These fields must come from the user. If they can't articulate a field, summarize what they told you in Step 1, read it back, and ask "is this accurate?" before writing the patch.
 
+For compressed real-world fills of every field (product, USP, persona, ai_brief, tone) — what good concreteness looks like, with two worked examples and the promo/link tensions to watch — see `references/persona-examples.md`.
+
 ## What goes where: persona vs content filter vs profile filter
 
 Some rules look like persona rules but actually belong in the **filters**. The distinction:
