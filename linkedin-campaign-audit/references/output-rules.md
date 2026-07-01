@@ -18,6 +18,10 @@ only for tool calls; they must never appear in what the user reads.
   English ("I'll raise the limit", not "I'll call `update_campaign`").
 - **Lookup codes** — `premium`, `ContentFilter`, `WaitingForProfile`. Say "Pro", "off-topic skips",
   "waiting on profile data".
+- **Subscriber-stats fields** — `profile_followers_count`, `connections_count`,
+  `company_followers_count`, `granularity`, `points[]`. Translate to plain prose ("profile followers
+  grew from 1,240 to 1,278 — +38 this week", "company page added 12 followers"). Never expose the
+  `granularity`/`points` shape or that the tool auto-grouped by day vs month.
 - **Domain entity / internal class names**.
 
 Default to plain, user-friendly prose at all times.

@@ -48,7 +48,7 @@ If preconditions fail (not enabled, mostly idle, stuck status) → stop, recomme
 **Tier 2 — fetch only for the bottleneck identified in Step 2:**
 - Target-bound / concentration-bound → `get_per_target_performance(<campaign_id>, from_date, to_date)` + `get_campaign_targets(<campaign_id>, page_number=0, page_size=50)` (paginate if `total_count > 50`). Cross-reference to identify dead targets by `target_id`.
 - Filter-bound → `get_campaign_assistant_config(<campaign_id>)` — current filter config you'd be patching.
-- Quality-bound → `get_engagement_feedback(<campaign_id>, from_date, to_date)` — likes/replies; pull top-3 as a quality reference.
+- Quality-bound → `get_engagement_feedback(<campaign_id>, from_date, to_date)` — likes/replies **and impressions (post views)**, summary + per-comment; pull top-3 as a quality reference. Low impressions = a reach/targeting problem; healthy impressions but low likes/replies = a comment-quality problem.
 
 ### Step 2 — Identify the growth bottleneck
 
@@ -87,6 +87,8 @@ Present no more than **5 recommendations** at a time. More than 5 = the user won
 ### Step 5 — Recommend a measurement plan
 
 Tell the user: "Apply 1–2 of these changes, then run the audit again in 7 days. Don't change everything at once — you won't know what worked."
+
+The clearest growth signal is audience size over time: `get_subscriber_stats(from_date, to_date)` returns the account's daily profile-follower / connection / company-follower trend (it auto-collapses to monthly past 60 days). Use the follower delta across the measurement window as the headline "did this actually grow reach" metric — comment throughput is the input, follower growth is the outcome. Report it in plain prose ("+38 followers over the week"), never raw field names.
 
 If the user wants to apply changes now, use the appropriate write tool:
 - Parameter changes (limits, AI method, schedule, account binding) → `update_campaign(campaign_id, patch={…})`.

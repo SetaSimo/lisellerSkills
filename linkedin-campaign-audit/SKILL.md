@@ -47,6 +47,7 @@ Note which campaigns are `is_enabled=false` — those are paused and excluded fr
 
 - `get_user_stats` → current USD balance, monthly USD, and per-action prices (search, content_filter, profile_filter, comment, premium_comment)
 - `list_lookup(kind="SkipReason")` → reference table for interpreting `skip_reason_id` / `skip_reason_code` returned by the breakdown endpoint
+- `get_subscriber_stats` → the account's LinkedIn follower/connection/company-follower trend, refreshed daily. Call it with the **same 7-day window** as the rest of the audit and it returns one point per day. The tool auto-collapses to monthly points once the range exceeds 60 days, so don't request a multi-month window expecting per-day detail. This is the ground-truth "is the audience actually growing" signal — visibility from comments should show up here over time.
 
 ### Step 3 — Pull weekly data (tiered — one campaign per pass)
 
@@ -66,7 +67,7 @@ For the campaign being audited, pull data in tiers (each takes `campaign_id`, `f
 **Tier 2 — on-demand only when a Tier-1 signal calls for it (don't pull these by default):**
 - `get_campaign_assistant_config` → **only when ContentFilter/ProfileFilter dominates skips** — shows what the filter is currently set to, to explain the dominance.
 - `get_per_target_performance` + `get_campaign_targets` (page 0, size 50; paginate only if `total_count > 50`) → **only when throughput is low or the user asks about dead keywords**. Cross-reference the two to name dead targets (0 comments over the window) and suggest removals via `modify_campaign_targets.ids_to_remove`.
-- `get_engagement_feedback` → summary + per-comment array sorted by engagement (pull top-3 for the report). Fetch once **if the account is stats-connected**. **If not connected, likes/replies come back zero** — don't report "no engagement"; tell the user in plain language to connect the account for stats on **https://app.liseller.com** under **Analytics** (https://app.liseller.com/pages/analytics) and **Inbox** (https://app.liseller.com/pages/communications), and skip this call.
+- `get_engagement_feedback` → summary (likes, replies, **and impressions/post views** — totals + averages) plus per-comment array sorted by engagement, each comment carrying its own **impressions** count (pull top-3 for the report). Impressions answer "how many people saw the comment", a level above likes/replies. Fetch once **if the account is stats-connected**. **If not connected, likes/replies/impressions come back zero** — don't report "no engagement"; tell the user in plain language to connect the account for stats on **https://app.liseller.com** under **Analytics** (https://app.liseller.com/pages/analytics) and **Inbox** (https://app.liseller.com/pages/communications), and skip this call.
 
 ### Step 4 — Evaluate each enabled campaign against the checklist
 
@@ -77,6 +78,7 @@ See `references/audit-checklist.md` for the full per-campaign scorecard. The fiv
 3. **Budget burn** — at current daily comment count × per-action price, how many days does the balance last? Flag if <14 days runway or if monthly_usd is being burned faster than 1/30 per day.
 4. **AI method fit** — **Pro is the expected method for every campaign.** `Off` campaigns generate likes only, no visibility lift. `Common` lacks the research-backed quality of Pro. Any campaign on `Common` or `Off` → raise a "move to Pro" action item. `Custom` must never be set (UI-only). If engagement data was pulled (Tier 2), cross-reference `engagement_feedback.summary.avg_likes_per_comment` to quantify the gap — otherwise the recommendation for a non-Pro campaign stands regardless: move it to Pro.
 5. **Schedule sanity** — if `is_using_schedule=true`, are the windows wide enough to hit the day limit? Narrow windows + high `pause_between_posts_in_minutes` = arithmetic impossibility.
+6. **Audience growth** — from `get_subscriber_stats`: are profile followers / connections / company followers trending up over the window? This is account-level (spans all campaigns), so report it once. Flat or falling followers despite healthy comment throughput = visibility isn't converting to audience — a signal to revisit targeting/persona, not throughput. Translate to plain prose (e.g. "+38 followers this week"), never raw field names.
 
 ### Step 5 — Cross-campaign issues
 
