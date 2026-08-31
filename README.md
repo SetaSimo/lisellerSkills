@@ -1,4 +1,4 @@
-# Liseller Skills
+# liboosterSkills Skills
 
 **Your AI shouldn't leave "Great post! 🚀" on your buyers' LinkedIn.**
 
@@ -29,7 +29,7 @@ Open Claude connectors (the server URL is copied automatically), paste it into t
 
 **Claude Code**
 ```bash
-claude mcp add --transport http liseller https://mcp.liseller.com/mcp
+claude mcp add --transport http liseller https://mcp.libooster.com/mcp
 claude /mcp
 ```
 
@@ -38,7 +38,7 @@ claude /mcp
 {
   "mcpServers": {
     "liseller": {
-      "url": "https://mcp.liseller.com/mcp"
+      "url": "https://mcp.libooster.com/mcp"
     }
   }
 }
@@ -50,7 +50,7 @@ claude /mcp
   "servers": {
     "liseller": {
       "type": "http",
-      "url": "https://mcp.liseller.com/mcp"
+      "url": "https://mcp.libooster.com/mcp"
     }
   }
 }
@@ -64,7 +64,7 @@ Open ChatGPT connectors, click **Add custom connector**, paste `https://mcp.lise
 {
   "mcpServers": {
     "liseller": {
-      "url": "https://mcp.liseller.com/mcp"
+      "url": "https://mcp.libooster.com/mcp"
     }
   }
 }
@@ -74,7 +74,7 @@ Open ChatGPT connectors, click **Add custom connector**, paste `https://mcp.lise
 
 Open a terminal in your workspace or project and run:
 ```bash
-npx skills add https://github.com/SetaSimo/lisellerSkills --yes
+npx skills add https://github.com/SetaSimo/liboosterSkills --yes
 ```
 Then reload your client so it picks up the new skills.
 
